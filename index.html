@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5f4ef">
+  <meta
+    name="description"
+    content="Interactive U.S. macro dashboard with war-period analysis, worker welfare simulation, and a plain-language methodology section."
+  >
+  <title>Output, Welfare, and War Mobilization</title>
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101518'/%3E%3Cpath d='M16 43V21h7.2l8.3 14.3L40 21H48v22h-5.8V31.1l-7.8 12.8h-3.8L22.7 31V43z' fill='%23f5f4ef'/%3E%3C/svg%3E"
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  >
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="./data.js" defer></script>
+  <script src="./app.js" defer></script>
+  <style>
+    :root {
+      --bg: #f5f4ef;
+      --bg-strong: #eeece4;
+      --panel: rgba(255, 255, 255, 0.78);
+      --panel-strong: rgba(255, 255, 255, 0.92);
+      --ink: #101518;
+      --muted: #57636f;
+      --line: rgba(16, 21, 24, 0.1);
+      --soft-line: rgba(16, 21, 24, 0.06);
+      --accent: #0f766e;
+      --accent-deep: #0b5a55;
+      --accent-alt: #b45309;
+      --danger: #b42318;
+      --blue: #2563eb;
+      --shadow: 0 22px 70px rgba(16, 21, 24, 0.08);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 999px;
+      --max-width: 1480px;
+      --chart-height: 620px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 28%),
+        radial-gradient(circle at top right, rgba(180, 83, 9, 0.1), transparent 32%),
+        linear-gradient(180deg, #faf9f4 0%, #f4f2eb 55%, #efede6 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(16, 21, 24, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 21, 24, 0.03) 1px, transparent 1px);
+      background-size: 30px 30px;
+      opacity: 0.35;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .app-shell {
+      position: relative;
+      width: min(calc(100% - 28px), var(--max-width));
+      margin: 0 auto;
+      padding: 18px 0 60px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 14px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.62);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 14px 40px rgba(16, 21, 24, 0.08);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: #101518;
+      color: #f5f4ef;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-copy strong {
+      display: block;
+      font-size: 0.96rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-copy span {
+      display: block;
+      margin-top: 0.18rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .view-switch {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .nav-pill,
+    .ghost-button,
+    .preset-chip,
+    .series-toggle,
+    .mode-toggle,
+    .action-button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+      transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .nav-pill {
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-pill.is-active,
+    .mode-toggle.is-active,
+    .action-button.is-primary {
+      border-color: transparent;
+      background: #101518;
+      color: #f5f4ef;
+      box-shadow: 0 14px 32px rgba(16, 21, 24, 0.14);
+    }
+
+    .nav-pill:hover,
+    .ghost-button:hover,
+    .preset-chip:hover,
+    .series-toggle:hover,
+    .mode-toggle:hover,
+    .action-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(16, 21, 24, 0.2);
+    }
+
+    .hero {
+      position: relative;
+      margin-top: 18px;
+      padding: clamp(1.6rem, 2vw, 2.2rem);
+      border: 1px solid rgba(255, 255, 255, 0.66);
+      border-radius: var(--radius-xl);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 249, 244, 0.8)),
+        linear-gradient(180deg, rgba(37, 99, 235, 0.06), rgba(15, 118, 110, 0.05));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -50px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(15, 118, 110, 0.16), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: var(--radius-sm);
+      background: rgba(16, 21, 24, 0.05);
+      color: var(--accent-deep);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    h1,
+    .method-title {
+      font-family: "Instrument Serif", serif;
+      font-weight: 400;
+      line-height: 0.96;
+    }
+
+    h1 {
+      max-width: 12ch;
+      margin-top: 0.9rem;
+      font-size: clamp(3.2rem, 7vw, 6.4rem);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(290px, 0.95fr);
+      gap: 28px;
+      align-items: end;
+      margin-top: 1.2rem;
+    }
+
+    .hero-copy p,
+    .panel-head p,
+    .section-note,
+    .method-copy p,
+    .instruction-copy p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .hero-copy p {
+      font-size: clamp(1rem, 1.6vw, 1.12rem);
+      max-width: 62ch;
+    }
+
+    .hero-notes {
+      display: grid;
+      gap: 12px;
+    }
+
+    .hero-note {
+      padding: 1rem 1.05rem;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(16, 21, 24, 0.08);
+    }
+
+    .hero-note span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.77rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .hero-note strong {
+      display: block;
+      margin-top: 0.45rem;
+      font-size: 1.12rem;
+      line-height: 1.3;
+    }
+
+    .view-section {
+      margin-top: 18px;
+    }
+
+    .hero.is-compact .hero-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero.is-compact .hero-copy p,
+    .hero.is-compact .hero-notes {
+      display: none;
+    }
+
+    .panel,
+    .control-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: var(--radius-xl);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+    }
+
+    .control-card,
+    .panel {
+      padding: 1.25rem;
+    }
+
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .insight-card {
+      padding: 1rem 1.05rem;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(16, 21, 24, 0.06);
+    }
+
+    .insight-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .insight-card strong {
+      display: block;
+      margin-top: 0.46rem;
+      font-size: 1.34rem;
+      line-height: 1.1;
+    }
+
+    .insight-card p {
+      margin: 0.55rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    .control-top,
+    .panel-head,
+    .sim-actions,
+    .dataset-tools,
+    .control-groups {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .control-top {
+      margin-bottom: 1rem;
+    }
+
+    .control-top h2,
+    .panel-head h2,
+    .method-copy h2,
+    .instruction-copy h2 {
+      font-size: clamp(1.4rem, 2vw, 1.9rem);
+      line-height: 1.08;
+    }
+
+    .control-groups {
+      align-items: center;
+      gap: 12px;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--soft-line);
+    }
+
+    .toggle-row,
+    .preset-row,
+    .mode-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .series-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.82rem 0.96rem;
+      min-width: 200px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .series-toggle.is-off {
+      opacity: 0.52;
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    .series-toggle__dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--series-color, #101518);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--series-color, #101518) 16%, transparent);
+    }
+
+    .series-toggle__copy {
+      display: grid;
+      gap: 0.1rem;
+      text-align: left;
+    }
+
+    .series-toggle__copy strong {
+      font-size: 0.94rem;
+    }
+
+    .series-toggle__copy span,
+    .range-label,
+    .field label span,
+    .helper-text,
+    .table-meta,
+    .formula-note {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .preset-chip,
+    .ghost-button,
+    .mode-toggle,
+    .action-button {
+      padding: 0.78rem 0.98rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .ghost-button.is-active {
+      border-color: transparent;
+      background: rgba(16, 21, 24, 0.08);
+    }
+
+    .range-stack {
+      display: grid;
+      gap: 12px;
+      flex: 1 1 460px;
+    }
+
+    .range-inline {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+    }
+
+    .range-inline input,
+    .dataset-tools input,
+    .field input,
+    .explorer-controls select {
+      width: 100%;
+      padding: 0.82rem 0.92rem;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.94);
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .range-inline input[type="number"] {
+      width: 110px;
+    }
+
+    .range-inline input[type="range"] {
+      width: min(100%, 220px);
+      padding: 0;
+      background: transparent;
+      border: 0;
+    }
+
+    .selection-summary {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .panel-wide {
+      grid-column: span 12;
+    }
+
+    .panel-half {
+      grid-column: span 6;
+    }
+
+    .plot {
+      min-height: 360px;
+      margin-top: 1rem;
+    }
+
+    .plot.is-main {
+      min-height: var(--chart-height);
+    }
+
+    .explorer-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .explorer-controls label {
+      display: grid;
+      gap: 0.35rem;
+      min-width: 180px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .data-panel {
+      margin-top: 18px;
+    }
+
+    .dataset-tools {
+      align-items: center;
+    }
+
+    .dataset-tools input {
+      min-width: 220px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      margin-top: 1rem;
+      border: 1px solid var(--soft-line);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1220px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 0.9rem 0.8rem;
+      background: rgba(245, 244, 239, 0.96);
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: right;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    thead th:first-child,
+    tbody td:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: inherit;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: rgba(16, 21, 24, 0.018);
+    }
+
+    tbody td {
+      padding: 0.76rem 0.8rem;
+      border-bottom: 1px solid rgba(16, 21, 24, 0.05);
+      font-size: 0.88rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    tbody td:first-child {
+      background: rgba(255, 255, 255, 0.96);
+      font-weight: 700;
+    }
+
+    .simulation-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .instruction-copy,
+    .method-copy {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 1rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .field label {
+      display: grid;
+      gap: 0.18rem;
+    }
+
+    .field label strong {
+      font-size: 0.9rem;
+    }
+
+    .simulation-grid .panel {
+      padding-bottom: 1.4rem;
+    }
+
+    .sim-actions {
+      margin-top: 18px;
+      align-items: center;
+    }
+
+    .sim-results {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .result-card {
+      padding: 1rem 1.05rem;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(16, 21, 24, 0.06);
+    }
+
+    .result-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .result-card strong {
+      display: block;
+      margin-top: 0.46rem;
+      font-size: 1.2rem;
+      line-height: 1.22;
+    }
+
+    .result-card p {
+      margin: 0.55rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+
+    .status-box {
+      margin-top: 18px;
+      padding: 1rem 1.05rem;
+      border-radius: var(--radius-lg);
+      background: rgba(16, 21, 24, 0.05);
+      border: 1px solid var(--soft-line);
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .method-layout {
+      display: grid;
+      gap: 18px;
+    }
+
+    .method-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+      gap: 22px;
+      align-items: start;
+    }
+
+    .method-title {
+      font-size: clamp(2.3rem, 5vw, 4.6rem);
+    }
+
+    .method-card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .method-block {
+      padding: 1.15rem 1.2rem;
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(16, 21, 24, 0.06);
+    }
+
+    .method-block h3 {
+      font-size: 1.15rem;
+      line-height: 1.15;
+    }
+
+    .method-block p,
+    .method-block li {
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .method-block ul,
+    .method-block ol {
+      margin: 0.85rem 0 0;
+      padding-left: 1.2rem;
+    }
+
+    .formula {
+      margin: 0.95rem 0;
+      padding: 0.95rem 1rem;
+      border-radius: var(--radius-md);
+      background: #101518;
+      color: #f5f4ef;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .formula.is-light {
+      background: rgba(16, 21, 24, 0.06);
+      color: var(--ink);
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      padding: 1rem 1.15rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.64);
+      background: rgba(255, 255, 255, 0.68);
+      color: var(--muted);
+      line-height: 1.65;
+      text-align: center;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    @media (max-width: 1120px) {
+      .hero-grid,
+      .method-header,
+      .simulation-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .insight-grid,
+      .sim-results,
+      .method-card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .panel-half {
+        grid-column: span 12;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app-shell {
+        width: min(calc(100% - 18px), var(--max-width));
+        padding-top: 10px;
+      }
+
+      .topbar {
+        position: static;
+        border-radius: 24px;
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .view-switch {
+        justify-content: flex-start;
+      }
+
+      .insight-grid,
+      .sim-results,
+      .method-card-grid,
+      .field-grid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        max-width: 11ch;
+      }
+
+      .series-toggle {
+        min-width: 100%;
+      }
+
+      .range-inline input[type="number"],
+      .range-inline input[type="range"] {
+        width: 100%;
+      }
+
+      .dataset-tools {
+        width: 100%;
+      }
+
+      .dataset-tools input {
+        min-width: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">OW</div>
+        <div class="brand-copy">
+          <strong>Output, Welfare, and War Mobilization</strong>
+          <span>United States 1929-2025</span>
+        </div>
+      </div>
+      <nav class="view-switch" aria-label="Primary views">
+        <button class="nav-pill is-active" type="button" data-view-target="us-case">Dataset + U.S. case</button>
+        <button class="nav-pill" type="button" data-view-target="simulation">Simulation</button>
+        <button class="nav-pill" type="button" data-view-target="method">Method</button>
+      </nav>
+    </header>
+
+    <section class="hero" id="page-hero">
+      <span class="eyebrow" id="hero-eyebrow">Verified U.S. series • deployable on GitHub</span>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <h1 id="hero-title">Output is not the same thing as welfare.</h1>
+          <p id="hero-description">
+            This dashboard keeps the full United States macro dataset intact, but it makes the visual side much more usable:
+            zoomable linked charts, a detailed data table, a manual simulation lab, and a plain-language explanation of the
+            worker welfare formulas behind the thesis.
+          </p>
+        </div>
+        <div class="hero-notes" id="hero-notes">
+          <div class="hero-note">
+            <span>Dataset check</span>
+            <strong>97 annual rows match the attached workbook exactly.</strong>
+          </div>
+          <div class="hero-note">
+            <span>Thesis lens</span>
+            <strong>WWII is the cleanest wedge: GDP surged while private consumption lagged sharply.</strong>
+          </div>
+          <div class="hero-note">
+            <span>What is new here</span>
+            <strong>The site lets you compare output, core welfare, and distribution-adjusted welfare side by side.</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main>
+      <section class="view-section" id="view-us-case">
+        <div class="insight-grid">
+          <article class="insight-card">
+            <span>Coverage</span>
+            <strong id="insight-coverage">1929-2025</strong>
+            <p>Real GDP, consumption, GDP per capita, unemployment, employment, Gini, and government spending.</p>
+          </article>
+          <article class="insight-card">
+            <span>1942 wedge</span>
+            <strong id="insight-1942">GDP +18.89% vs consumption -2.37%</strong>
+            <p>The year that makes the thesis point immediately visible.</p>
+          </article>
+          <article class="insight-card">
+            <span>WWII onset</span>
+            <strong id="insight-ww2">Output 0.58 vs core welfare 0.06</strong>
+            <p>Mobilization raised output far more than worker welfare.</p>
+          </article>
+          <article class="insight-card">
+            <span>Current window</span>
+            <strong id="insight-window">1929-2025</strong>
+            <p>The table below follows the same year range as the charts.</p>
+          </article>
+        </div>
+
+        <section class="control-card">
+          <div class="control-top">
+            <div>
+              <h2>U.S. case explorer</h2>
+              <p class="section-note">
+                Use the variable buttons to add or remove series. The top chart is rebased inside the visible year window so the
+                movements are easier to compare. Zoom on one chart and the others follow.
+              </p>
+            </div>
+            <div class="mode-row">
+              <button class="ghost-button is-active" type="button" id="war-toggle" aria-pressed="true">War shading on</button>
+              <button class="ghost-button" type="button" id="reset-range">Reset range</button>
+            </div>
+          </div>
+
+          <div class="toggle-row" id="series-toggles" aria-label="Variable toggles"></div>
+
+          <div class="control-groups">
+            <div class="range-stack">
+              <div class="range-inline">
+                <span class="range-label">Visible years</span>
+                <input id="year-start" type="number" min="1929" max="2025" step="1" value="1929" aria-label="Start year">
+                <input id="year-end" type="number" min="1929" max="2025" step="1" value="2025" aria-label="End year">
+                <button class="preset-chip" type="button" data-range-preset="full">Full sample</button>
+                <button class="preset-chip" type="button" data-range-preset="depression">Depression</button>
+                <button class="preset-chip" type="button" data-range-preset="ww2">WWII</button>
+                <button class="preset-chip" type="button" data-range-preset="korea">Korea</button>
+                <button class="preset-chip" type="button" data-range-preset="vietnam">Vietnam</button>
+                <button class="preset-chip" type="button" data-range-preset="modern">2000+</button>
+              </div>
+              <div class="range-inline">
+                <span class="range-label">Chart height</span>
+                <input id="chart-height" type="range" min="480" max="980" step="20" value="620" aria-label="Chart height">
+                <span class="range-label" id="chart-height-value">620 px</span>
+              </div>
+            </div>
+            <p class="selection-summary" id="selection-summary"></p>
+          </div>
+        </section>
+
+        <div class="chart-grid">
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <h2>Macro overview</h2>
+                <p>Indexed inside the visible year window so you can compare trajectories closely, year by year.</p>
+              </div>
+            </div>
+            <div class="plot is-main" id="overview-chart"></div>
+          </article>
+
+          <article class="panel panel-half">
+            <div class="panel-head">
+              <div>
+                <h2>Worker welfare lens</h2>
+                <p>GDP and consumption are indexed with the two welfare series to make the wedge visible.</p>
+              </div>
+            </div>
+            <div class="plot" id="welfare-chart"></div>
+          </article>
+
+          <article class="panel panel-half">
+            <div class="panel-head">
+              <div>
+                <h2>War multipliers</h2>
+                <p>Onset windows: WWII, Korea, and Vietnam.</p>
+              </div>
+            </div>
+            <div class="plot" id="multiplier-chart"></div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <h2>Unit-aware detail</h2>
+                <p>Same colors, split by measurement unit so raw levels stay readable.</p>
+              </div>
+            </div>
+            <div class="plot" id="unit-chart"></div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <h2>Annual changes</h2>
+                <p>Growth rates and annual changes, still linked to the same year window.</p>
+              </div>
+            </div>
+            <div class="plot" id="change-chart"></div>
+          </article>
+
+          <article class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <h2>Relationship explorer</h2>
+                <p>Switch the axes to inspect how variables move together in levels or annual changes.</p>
+              </div>
+              <div class="explorer-controls">
+                <label>
+                  Mode
+                  <select id="relation-mode">
+                    <option value="change">Annual changes</option>
+                    <option value="level">Levels</option>
+                  </select>
+                </label>
+                <label>
+                  X axis
+                  <select id="relation-x"></select>
+                </label>
+                <label>
+                  Y axis
+                  <select id="relation-y"></select>
+                </label>
+              </div>
+            </div>
+            <div class="plot" id="relation-chart"></div>
+          </article>
+        </div>
+
+        <section class="panel data-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Dataset detail</h2>
+              <p>The table follows the current chart window and includes the derived welfare series.</p>
+            </div>
+            <div class="dataset-tools">
+              <input id="dataset-search" type="search" placeholder="Filter by year or value">
+              <button class="action-button" type="button" id="export-csv">Download visible CSV</button>
+            </div>
+          </div>
+          <div class="table-meta" id="dataset-meta"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>GDP</th>
+                  <th>GDP %</th>
+                  <th>Consumption</th>
+                  <th>Consumption %</th>
+                  <th>GDP pc</th>
+                  <th>GDP pc %</th>
+                  <th>Unemployment</th>
+                  <th>U change</th>
+                  <th>Gini</th>
+                  <th>Gini change</th>
+                  <th>Employment</th>
+                  <th>Employment %</th>
+                  <th>Government</th>
+                  <th>Government %</th>
+                  <th>Core welfare</th>
+                  <th>Welfare</th>
+                </tr>
+              </thead>
+              <tbody id="dataset-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view-section" id="view-simulation" hidden>
+        <section class="panel">
+          <div class="instruction-copy">
+            <h2>Manual simulation lab</h2>
+            <p>
+              This section is intentionally manual. You type the values yourself for two consecutive years and the page computes
+              the fiscal shock share, the output multiplier, the core welfare level, the distribution-adjusted welfare level, and
+              the related welfare multipliers.
+            </p>
+            <p>
+              The idea is simple: this section lets you run a simulation by entering two yearly observations and comparing
+              output results with welfare results.
+            </p>
+            <p class="formula-note">
+              Short limitation: the full welfare measure needs a Gini value in both years. If Gini is missing, the tool still
+              computes the core welfare version.
+            </p>
+          </div>
+        </section>
+
+        <div class="simulation-grid">
+          <article class="panel">
+            <div class="instruction-copy">
+              <h2>Baseline year t-1</h2>
+              <p>Use the older year here. GDP and government spending are needed for the multiplier denominator.</p>
+            </div>
+            <div class="field-grid" id="sim-form-left"></div>
+          </article>
+
+          <article class="panel">
+            <div class="instruction-copy">
+              <h2>Comparison year t</h2>
+              <p>Use the next year here. The tool compares this row against the baseline above.</p>
+            </div>
+            <div class="field-grid" id="sim-form-right"></div>
+          </article>
+        </div>
+
+        <div class="sim-actions">
+          <div class="mode-row">
+            <button class="action-button is-primary" type="button" id="simulate-button">Run calculation</button>
+            <button class="action-button" type="button" id="load-example">Load sample values</button>
+            <button class="action-button" type="button" id="clear-simulation">Clear fields</button>
+          </div>
+        </div>
+
+        <div class="status-box" id="simulation-status">
+          Enter two years of data and click “Run calculation”. Optional fields help with consistency checks, but the core
+          calculations need GDP, consumption, unemployment, employment, and government spending. The full welfare version also
+          needs Gini.
+        </div>
+
+        <div class="sim-results" id="simulation-results">
+          <article class="result-card">
+            <span>Fiscal shock share</span>
+            <strong id="sim-shock">—</strong>
+            <p id="sim-shock-note">The change in government spending divided by baseline GDP.</p>
+          </article>
+          <article class="result-card">
+            <span>Output multiplier</span>
+            <strong id="sim-output-multiplier">—</strong>
+            <p id="sim-output-note">Output response relative to the spending change.</p>
+          </article>
+          <article class="result-card">
+            <span>Core welfare multiplier</span>
+            <strong id="sim-core-multiplier">—</strong>
+            <p id="sim-core-note">Uses worker consumption and employment access only.</p>
+          </article>
+          <article class="result-card">
+            <span>Full welfare multiplier</span>
+            <strong id="sim-full-multiplier">—</strong>
+            <p id="sim-full-note">Adds the inequality adjustment when both Gini values are present.</p>
+          </article>
+          <article class="result-card">
+            <span>Baseline core welfare</span>
+            <strong id="sim-core-base">—</strong>
+            <p id="sim-core-base-note">Level in year t-1.</p>
+          </article>
+          <article class="result-card">
+            <span>Comparison core welfare</span>
+            <strong id="sim-core-next">—</strong>
+            <p id="sim-core-next-note">Level in year t.</p>
+          </article>
+          <article class="result-card">
+            <span>Baseline full welfare</span>
+            <strong id="sim-full-base">—</strong>
+            <p id="sim-full-base-note">Needs Gini in year t-1.</p>
+          </article>
+          <article class="result-card">
+            <span>Comparison full welfare</span>
+            <strong id="sim-full-next">—</strong>
+            <p id="sim-full-next-note">Needs Gini in year t.</p>
+          </article>
+        </div>
+
+        <div class="chart-grid">
+          <article class="panel panel-half">
+            <div class="panel-head">
+              <div>
+                <h2>Simulation comparison</h2>
+                <p>Output and welfare multipliers side by side.</p>
+              </div>
+            </div>
+            <div class="plot" id="simulation-comparison-chart"></div>
+          </article>
+
+          <article class="panel panel-half">
+            <div class="panel-head">
+              <div>
+                <h2>Welfare decomposition</h2>
+                <p>How much comes from worker consumption, employment access, and inequality.</p>
+              </div>
+            </div>
+            <div class="plot" id="simulation-decomposition-chart"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view-section" id="view-method" hidden>
+        <section class="panel">
+          <div class="method-layout">
+            <div class="method-header">
+              <div class="method-copy">
+                <span class="eyebrow">Method in plain language</span>
+                <h2 class="method-title">How I build the welfare measure, and why I do not rely on GDP alone.</h2>
+                <p>
+                  I start from a simple point. GDP tells me how much the economy produces. It does not tell me, by itself,
+                  how much of that production ends up as private consumption, how many workers are left out of the labor market,
+                  or whether the gains are broadly shared. That is why I use GDP as an output measure, but not as a welfare
+                  measure on its own.
+                </p>
+              </div>
+              <div class="method-copy">
+                <p>
+                  The formulas below are written in a way that a non-specialist can still follow. I keep the notation explicit,
+                  I explain where each term comes from, and I separate the simpler core welfare version from the fuller version
+                  that also adjusts for inequality.
+                </p>
+                <div class="formula is-light">LF_t = L_t / (1 - u_t)</div>
+                <div class="formula is-light">W_t^core = ln(C_t / L_t) + ln(1 - u_t)</div>
+                <div class="formula is-light">W_t = W_t^core + η ln(1 - I_t)</div>
+              </div>
+            </div>
+
+            <div class="method-card-grid">
+              <article class="method-block">
+                <h3>1. What each variable means</h3>
+                <p>
+                  <strong>Y_t</strong> is real GDP, so it measures total production. <strong>C_t</strong> is real personal
+                  consumption, so it is closer to what households privately enjoy. <strong>L_t</strong> is employment.
+                  <strong>u_t</strong> is the unemployment rate. <strong>I_t</strong> is the Gini index on a 0 to 1 scale,
+                  which I use as a practical inequality proxy.
+                </p>
+                <p>
+                  The reason I keep both employment and unemployment is that they do different jobs in the formula. Employment
+                  tells me how thinly private consumption is spread across people in work. Unemployment tells me how much of the
+                  labor force is excluded from work altogether.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>2. Why I derive the labor force first</h3>
+                <p>
+                  If unemployment is a share of the labor force, and employment is the employed part of that labor force, then
+                  the accounting identity is:
+                </p>
+                <div class="formula">L_t = (1 - u_t) LF_t</div>
+                <p>Rearranging gives:</p>
+                <div class="formula">LF_t = L_t / (1 - u_t)</div>
+                <p>
+                  This matters because it lets me move from a measure that only looks at employed workers to a measure that
+                  also penalizes labor-market exclusion.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>3. Worker-relevant consumption</h3>
+                <p>
+                  I do not use consumption per person as the main object, because my question is about worker welfare. Instead I
+                  use consumption per labor-force participant:
+                </p>
+                <div class="formula">c_t^worker = C_t / LF_t = C_t (1 - u_t) / L_t</div>
+                <p>
+                  This keeps the worker focus, but it does not ignore unemployment. If unemployment rises, the measure falls
+                  even if consumption among the employed looks stable.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>4. Core welfare and full welfare</h3>
+                <p>The simpler version is the core welfare measure:</p>
+                <div class="formula">W_t^core = ln(C_t / L_t) + ln(1 - u_t)</div>
+                <p>
+                  The first term captures private consumption per employed worker. The second term captures labor-market access.
+                </p>
+                <p>The fuller version adds inequality:</p>
+                <div class="formula">W_t = ln(C_t / L_t) + ln(1 - u_t) + η ln(1 - I_t)</div>
+                <p>
+                  Here <strong>η</strong> is the degree of inequality aversion. I use <strong>η = 1</strong> as the baseline.
+                  If inequality rises, the final term falls, so welfare falls as well.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>5. Why the log form is useful</h3>
+                <p>
+                  I use logs because the interpretation of changes becomes cleaner. A change in the welfare index can be split
+                  into a consumption part, an employment-access part, and an inequality part:
+                </p>
+                <div class="formula">ΔW_t = Δln(C_t / L_t) + Δln(1 - u_t) + ηΔln(1 - I_t)</div>
+                <p>
+                  This makes the explanation much easier. If welfare changes, I can say whether it moved because private worker
+                  consumption changed, because unemployment changed, or because distribution changed.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>6. Output multiplier versus welfare multiplier</h3>
+                <p>
+                  In a standard Keynesian setting I still care about the output multiplier, because I want to know how strongly
+                  government spending moves production:
+                </p>
+                <div class="formula">M_Y = (Y_t - Y_{t-1}) / (G_t - G_{t-1})</div>
+                <p>
+                  But I also want a welfare analogue. First I scale the fiscal change by baseline GDP:
+                </p>
+                <div class="formula">Shock_t = (G_t - G_{t-1}) / Y_{t-1}</div>
+                <p>Then I define:</p>
+                <div class="formula">M_W^core = (W_t^core - W_{t-1}^core) / Shock_t</div>
+                <div class="formula">M_W = (W_t - W_{t-1}) / Shock_t</div>
+                <p>
+                  This lets me compare a production response and a welfare response inside the same fiscal episode.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>7. How I read the result</h3>
+                <p>
+                  If the output multiplier is large but the welfare multiplier is small, then fiscal expansion is raising
+                  production more than it is raising worker welfare. That is the basic wartime story in the U.S. data,
+                  especially in the onset of World War II.
+                </p>
+                <p>
+                  If both multipliers are large, the expansion looks more broad-based. If output rises but welfare falls, that
+                  means the composition of growth or the distribution of gains is working against household welfare.
+                </p>
+              </article>
+
+              <article class="method-block">
+                <h3>8. Limits I state openly</h3>
+                <p>
+                  I do not claim that this formula captures every dimension of welfare. It does not directly include health,
+                  mortality, leisure, environmental quality, or wartime fear and destruction. I use the Gini as a practical
+                  proxy because a long annual series for consumption inequality is not available in the same way.
+                </p>
+                <p>
+                  So the claim is not that this is the one true welfare function. The claim is that it is a much better measure
+                  than GDP alone when the question is whether output growth actually improves worker-centered welfare.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
